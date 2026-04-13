@@ -1,0 +1,4 @@
+numpy>=1.24
+opencv-python>=4.10
+PySide6>=6.7
+streamlit>=1.42
