@@ -158,6 +158,11 @@ def render_metric_card(label: str, value: str, subtext: str) -> None:
     )
 
 
+def slider_descriptor(text: str) -> None:
+    with st.expander("See more"):
+        st.caption(text)
+
+
 def main() -> None:
     inject_styles()
 
@@ -201,7 +206,7 @@ def main() -> None:
             value=0.43,
             step=0.005,
         )
-        st.caption(
+        slider_descriptor(
             "Adjusts how much of the image is treated as the plate area for "
             "analysis. Increase it to include more of the plate, or decrease it "
             "to focus more tightly on the center."
@@ -213,7 +218,7 @@ def main() -> None:
             value=180,
             step=1,
         )
-        st.caption(
+        slider_descriptor(
             "Controls how bright a region must be to be considered part of a "
             "possible colony. Higher values are more selective, while lower "
             "values include more faint regions."
@@ -225,7 +230,7 @@ def main() -> None:
             value=145,
             step=1,
         )
-        st.caption(
+        slider_descriptor(
             "Controls how much warm coloring a region needs before it is "
             "flagged as colony-like. Raise it to focus more on warmer-toned "
             "colonies, or lower it to include less strongly colored regions."
@@ -237,7 +242,7 @@ def main() -> None:
             value=140,
             step=1,
         )
-        st.caption(
+        slider_descriptor(
             "Sets the brightness cutoff for detected blobs. Lower values allow "
             "dimmer, subtler blobs to be considered, while higher values make "
             "detection more selective."
@@ -249,7 +254,7 @@ def main() -> None:
             value=1.8,
             step=0.1,
         )
-        st.caption(
+        slider_descriptor(
             "Changes the size range used when deciding whether a detected region "
             "should count as a colony. Higher values allow larger regions, while "
             "lower values keep detection more strict."
@@ -261,7 +266,7 @@ def main() -> None:
             value=0.55,
             step=0.05,
         )
-        st.caption(
+        slider_descriptor(
             "Controls how round an object must be before it is accepted "
             "automatically. Higher values favor more circular colonies, while "
             "lower values allow more irregular shapes."
@@ -273,7 +278,7 @@ def main() -> None:
             value=0.85,
             step=0.05,
         )
-        st.caption(
+        slider_descriptor(
             "Controls how solid and filled-in a region must be during review. "
             "Higher values favor smoother, less fragmented colonies, while lower "
             "values allow more uneven shapes."
@@ -285,7 +290,7 @@ def main() -> None:
             value=1.7,
             step=0.1,
         )
-        st.caption(
+        slider_descriptor(
             "Controls how stretched a region can be before it is flagged for "
             "review. Lower values favor more evenly shaped colonies, while "
             "higher values allow more elongated ones."
