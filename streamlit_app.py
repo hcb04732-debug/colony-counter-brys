@@ -201,12 +201,22 @@ def main() -> None:
             value=0.43,
             step=0.005,
         )
+        st.caption(
+            "Adjusts how much of the image is treated as the plate area for "
+            "analysis. Increase it to include more of the plate, or decrease it "
+            "to focus more tightly on the center."
+        )
         lightness_threshold = st.slider(
             "Lightness threshold",
             min_value=0,
             max_value=255,
             value=180,
             step=1,
+        )
+        st.caption(
+            "Controls how bright a region must be to be considered part of a "
+            "possible colony. Higher values are more selective, while lower "
+            "values include more faint regions."
         )
         warm_tone_threshold = st.slider(
             "Warm-tone threshold",
@@ -215,12 +225,22 @@ def main() -> None:
             value=145,
             step=1,
         )
+        st.caption(
+            "Controls how much warm coloring a region needs before it is "
+            "flagged as colony-like. Raise it to focus more on warmer-toned "
+            "colonies, or lower it to include less strongly colored regions."
+        )
         blob_min_threshold = st.slider(
             "Blob brightness cutoff",
             min_value=80,
             max_value=220,
             value=140,
             step=1,
+        )
+        st.caption(
+            "Sets the brightness cutoff for detected blobs. Lower values allow "
+            "dimmer, subtler blobs to be considered, while higher values make "
+            "detection more selective."
         )
         area_multiplier = st.slider(
             "Area multiplier",
@@ -229,12 +249,22 @@ def main() -> None:
             value=1.8,
             step=0.1,
         )
+        st.caption(
+            "Changes the size range used when deciding whether a detected region "
+            "should count as a colony. Higher values allow larger regions, while "
+            "lower values keep detection more strict."
+        )
         min_review_circularity = st.slider(
             "Review circularity",
             min_value=0.0,
             max_value=1.0,
             value=0.55,
             step=0.05,
+        )
+        st.caption(
+            "Controls how round an object must be before it is accepted "
+            "automatically. Higher values favor more circular colonies, while "
+            "lower values allow more irregular shapes."
         )
         min_review_solidity = st.slider(
             "Review solidity",
@@ -243,12 +273,22 @@ def main() -> None:
             value=0.85,
             step=0.05,
         )
+        st.caption(
+            "Controls how solid and filled-in a region must be during review. "
+            "Higher values favor smoother, less fragmented colonies, while lower "
+            "values allow more uneven shapes."
+        )
         max_review_aspect_ratio = st.slider(
             "Review aspect ratio",
             min_value=1.0,
             max_value=6.0,
             value=1.7,
             step=0.1,
+        )
+        st.caption(
+            "Controls how stretched a region can be before it is flagged for "
+            "review. Lower values favor more evenly shaped colonies, while "
+            "higher values allow more elongated ones."
         )
         analyze_clicked = st.button("Analyze plate", type="primary", use_container_width=True)
 
