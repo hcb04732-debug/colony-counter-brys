@@ -108,6 +108,22 @@ def encode_png(image: np.ndarray) -> bytes:
     return encoded.tobytes()
 
 
+def crop_review_region(
+    image: np.ndarray,
+    bbox: tuple[int, int, int, int],
+    padding: int = 70,
+) -> np.ndarray:
+    x, y, width, height = bbox
+    image_height, image_width = image.shape[:2]
+
+    x0 = max(0, x - padding)
+    y0 = max(0, y - padding)
+    x1 = min(image_width, x + width + padding)
+    y1 = min(image_height, y + height + padding)
+
+    return cv2.cvtColor(image[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
+
+
 def review_csv_bytes(review_rows: list[dict[str, str | int | float]]) -> bytes:
     handle = io.StringIO()
     if review_rows:
@@ -131,11 +147,13 @@ def review_csv_bytes(review_rows: list[dict[str, str | int | float]]) -> bytes:
     return handle.getvalue().encode("utf-8")
 
 
-def notes_bytes(result) -> bytes:
+def notes_bytes(result, manual_review_total: int, final_count: int) -> bytes:
     text = "\n".join(
         [
             f"Auto-counted colonies: {result.auto_count}",
             f"Flagged for human review: {result.review_count}",
+            f"Manual review colonies added: {manual_review_total}",
+            f"Final combined count: {final_count}",
             f"Raw clear-circle detections: {result.raw_circle_count}",
             f"Ignored edge artifacts: {result.ignored_artifact_count}",
             f"Median contour area: {result.median_contour_area:.1f} px",
@@ -161,6 +179,39 @@ def render_metric_card(label: str, value: str, subtext: str) -> None:
 def slider_descriptor(text: str) -> None:
     with st.expander("See more"):
         st.caption(text)
+
+
+def manual_count_key(image_name: str, review_id: int) -> str:
+    safe_name = image_name.replace(" ", "_")
+    return f"manual_review_count::{safe_name}::{review_id}"
+
+
+def clear_manual_count_state(image_name: str) -> None:
+    prefix = f"manual_review_count::{image_name.replace(' ', '_')}::"
+    for key in list(st.session_state.keys()):
+        if key.startswith(prefix):
+            del st.session_state[key]
+
+
+def build_review_rows_with_manual_counts(result, review_rows):
+    rows_with_manual: list[dict[str, str | int | float]] = []
+    manual_review_total = 0
+
+    for region, row in zip(result.review_regions, review_rows):
+        suggested_count = max(1, len(region.circle_ids))
+        manual_count = int(
+            st.session_state.get(
+                manual_count_key(result.image_path.name, region.review_id),
+                suggested_count,
+            )
+        )
+        manual_review_total += manual_count
+
+        row_with_manual = dict(row)
+        row_with_manual["manual_count"] = manual_count
+        rows_with_manual.append(row_with_manual)
+
+    return rows_with_manual, manual_review_total
 
 
 def main() -> None:
@@ -316,6 +367,7 @@ def main() -> None:
         return
 
     if analyze_clicked or st.session_state.get("last_uploaded_name") != uploaded_file.name:
+        clear_manual_count_state(uploaded_file.name)
         settings = ColonySettings(
             plate_radius_fraction=plate_radius_fraction,
             lightness_threshold=lightness_threshold,
@@ -338,9 +390,14 @@ def main() -> None:
         result = st.session_state["last_result"]
 
     review_rows = review_regions_to_rows(result)
+    review_rows_with_manual, manual_review_total = build_review_rows_with_manual_counts(
+        result,
+        review_rows,
+    )
+    final_count = result.auto_count + manual_review_total
 
     st.markdown('<div class="section-title">Summary</div>', unsafe_allow_html=True)
-    metric_cols = st.columns(4)
+    metric_cols = st.columns(5)
     with metric_cols[0]:
         render_metric_card(
             "Auto Count",
@@ -355,11 +412,17 @@ def main() -> None:
         )
     with metric_cols[2]:
         render_metric_card(
+            "Final Count",
+            str(final_count),
+            "Auto-count plus manual review entries",
+        )
+    with metric_cols[3]:
+        render_metric_card(
             "Raw Detections",
             str(result.raw_circle_count),
             "Bright circular colony candidates",
         )
-    with metric_cols[3]:
+    with metric_cols[4]:
         render_metric_card(
             "Area Threshold",
             f"{result.review_area_threshold:.0f} px",
@@ -381,15 +444,68 @@ def main() -> None:
 
     with review_tab:
         if review_rows:
-            st.dataframe(review_rows, use_container_width=True, hide_index=True)
+            st.dataframe(review_rows_with_manual, use_container_width=True, hide_index=True)
+            st.markdown(
+                '<div class="section-title">Review Region Cards</div>',
+                unsafe_allow_html=True,
+            )
+            st.caption(
+                "Open a highlighted region, inspect the crop, and enter how many "
+                "colonies are actually present there. The final count updates "
+                "automatically."
+            )
+
+            for region in result.review_regions:
+                suggested_count = max(1, len(region.circle_ids))
+                input_key = manual_count_key(result.image_path.name, region.review_id)
+                current_count = int(st.session_state.get(input_key, suggested_count))
+                expander_title = f"R{region.review_id} · current count: {current_count}"
+
+                with st.expander(expander_title):
+                    card_cols = st.columns([1.05, 1.35])
+                    with card_cols[0]:
+                        st.image(
+                            crop_review_region(decoded, region.bbox),
+                            caption=f"Review crop for R{region.review_id}",
+                            use_container_width=True,
+                        )
+                    with card_cols[1]:
+                        st.number_input(
+                            f"Colonies in R{region.review_id}",
+                            min_value=0,
+                            step=1,
+                            value=suggested_count,
+                            key=input_key,
+                        )
+
+                        metric_cols = st.columns(3)
+                        with metric_cols[0]:
+                            st.metric("Suggested", suggested_count)
+                        with metric_cols[1]:
+                            st.metric("Area", f"{region.area:.0f} px")
+                        with metric_cols[2]:
+                            st.metric("Aspect", f"{region.aspect_ratio:.2f}")
+
+                        if region.circle_ids:
+                            st.caption(
+                                "Detected centers: "
+                                + ", ".join(str(circle_id) for circle_id in region.circle_ids)
+                            )
+                        else:
+                            st.caption("Detected centers: none")
+
+                        st.caption("Reasons: " + " | ".join(region.reasons))
+
+            st.success(f"Final combined count: {final_count}")
         else:
             st.success("No suspicious regions were flagged for review.")
+            st.info(f"Final combined count: {final_count}")
 
     with download_tab:
         annotated_png = encode_png(result.annotated_image)
         mask_png = encode_png(result.mask_image)
-        csv_bytes = review_csv_bytes(review_rows)
-        txt_bytes = notes_bytes(result)
+        csv_bytes = review_csv_bytes(review_rows_with_manual)
+        txt_bytes = notes_bytes(result, manual_review_total, final_count)
         download_cols = st.columns(4)
         with download_cols[0]:
             st.download_button(
