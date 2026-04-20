@@ -108,7 +108,11 @@ def _detect_clear_circles(
     params.maxThreshold = 255
     params.thresholdStep = 10
     params.filterByArea = True
-    params.minArea = 120
+    # Blob centers are smaller than the full contour of a colony, so tie the
+    # blob-area floor to the user-facing minimum contour area at a lower scale.
+    # This lets smaller colonies become countable when the minimum-area slider
+    # is reduced, without opening the detector to tiny speck noise.
+    params.minArea = max(30, int(settings.min_contour_area * 0.4))
     params.maxArea = 18000
     params.filterByCircularity = True
     params.minCircularity = 0.52

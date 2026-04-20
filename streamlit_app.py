@@ -298,6 +298,18 @@ def main() -> None:
             "dimmer, subtler blobs to be considered, while higher values make "
             "detection more selective."
         )
+        min_contour_area = st.slider(
+            "Minimum colony area",
+            min_value=50,
+            max_value=600,
+            value=300,
+            step=10,
+        )
+        slider_descriptor(
+            "Sets the smallest detected region that can still be treated as a "
+            "possible colony. Lower values allow smaller colonies to be counted, "
+            "while higher values filter out tiny specks and image noise."
+        )
         area_multiplier = st.slider(
             "Area multiplier",
             min_value=1.0,
@@ -373,6 +385,7 @@ def main() -> None:
             lightness_threshold=lightness_threshold,
             warm_tone_threshold=warm_tone_threshold,
             blob_min_threshold=blob_min_threshold,
+            min_contour_area=min_contour_area,
             area_multiplier=area_multiplier,
             min_review_circularity=min_review_circularity,
             min_review_solidity=min_review_solidity,
