@@ -23,14 +23,14 @@ st.set_page_config(
 
 RECOMMENDED_THRESHOLDS = {
     "plate_radius_fraction": 0.43,
-    "lightness_threshold": 185,
-    "warm_tone_threshold": 150,
-    "blob_min_threshold": 150,
-    "min_contour_area": 320,
-    "area_multiplier": 1.4,
-    "min_review_circularity": 0.70,
-    "min_review_solidity": 0.90,
-    "max_review_aspect_ratio": 1.45,
+    "lightness_threshold": 175,
+    "warm_tone_threshold": 138,
+    "blob_min_threshold": 132,
+    "min_contour_area": 220,
+    "area_multiplier": 1.55,
+    "min_review_circularity": 0.62,
+    "min_review_solidity": 0.87,
+    "max_review_aspect_ratio": 1.60,
 }
 
 
@@ -43,14 +43,14 @@ def recommended_thresholds_markdown() -> str:
     return "\n".join(
         [
             "- `Plate radius fraction`: `0.43`",
-            "- `Lightness threshold`: `185`",
-            "- `Warm-tone threshold`: `150`",
-            "- `Blob brightness cutoff`: `150`",
-            "- `Minimum colony area`: `320`",
-            "- `Area multiplier`: `1.4`",
-            "- `Review circularity`: `0.70`",
-            "- `Review solidity`: `0.90`",
-            "- `Review aspect ratio`: `1.45`",
+            "- `Lightness threshold`: `175`",
+            "- `Warm-tone threshold`: `138`",
+            "- `Blob brightness cutoff`: `132`",
+            "- `Minimum colony area`: `220`",
+            "- `Area multiplier`: `1.55`",
+            "- `Review circularity`: `0.62`",
+            "- `Review solidity`: `0.87`",
+            "- `Review aspect ratio`: `1.60`",
         ]
     )
 
@@ -382,9 +382,9 @@ def main() -> None:
 
         st.markdown("### Recommended values")
         st.caption(
-            "These recommended settings are intentionally strict so more "
-            "borderline regions are sent to human review instead of being "
-            "auto-counted."
+            "These recommended settings are balanced to catch more real colonies "
+            "while still sending borderline regions to human review instead of "
+            "auto-counting them too aggressively."
         )
         if st.button("Return to recommended values", use_container_width=True):
             apply_recommended_thresholds()
@@ -648,9 +648,6 @@ def main() -> None:
         )
         final_count = result.auto_count + manual_review_total
 
-        st.markdown('<div class="section-title">Original Plate</div>', unsafe_allow_html=True)
-        st.image(cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB), use_container_width=True)
-
         st.markdown('<div class="section-title">Selected Image Summary</div>', unsafe_allow_html=True)
         metric_cols = st.columns(5)
         with metric_cols[0]:
@@ -684,8 +681,8 @@ def main() -> None:
                 f"Median contour area: {result.median_contour_area:.0f} px",
             )
 
-        image_tab, mask_tab, review_tab, download_tab = st.tabs(
-            ["Annotated Result", "Contour Mask", "Review Queue", "Downloads"]
+        image_tab, original_tab, mask_tab, review_tab, download_tab = st.tabs(
+            ["Annotated Result", "Original Plate", "Contour Mask", "Review Queue", "Downloads"]
         )
 
         with image_tab:
@@ -693,6 +690,9 @@ def main() -> None:
                 cv2.cvtColor(result.annotated_image, cv2.COLOR_BGR2RGB),
                 use_container_width=True,
             )
+
+        with original_tab:
+            st.image(cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB), use_container_width=True)
 
         with mask_tab:
             st.image(result.mask_image, use_container_width=True, clamp=True)
