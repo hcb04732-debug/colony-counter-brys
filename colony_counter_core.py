@@ -95,6 +95,8 @@ def _build_plate_mask(
 def _detect_clear_circles(
     image: np.ndarray,
     plate_mask: np.ndarray,
+    plate_center: tuple[int, int],
+    plate_radius: int,
     settings: ColonySettings,
 ) -> list[CircleDetection]:
     lightness = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)[:, :, 0]
@@ -124,15 +126,30 @@ def _detect_clear_circles(
     keypoints = detector.detect(masked)
 
     circles: list[CircleDetection] = []
-    for circle_id, keypoint in enumerate(keypoints, start=1):
+    next_circle_id = 1
+    for keypoint in keypoints:
+        x = int(round(keypoint.pt[0]))
+        y = int(round(keypoint.pt[1]))
+        radius = max(1, int(round(keypoint.size / 2)))
+        edge_margin = plate_radius - float(
+            np.linalg.norm(np.array([x, y]) - np.array(plate_center))
+        )
+
+        # Bright rim glare can look like a colony center to the blob detector.
+        # Reject keypoints that land too close to the plate edge so those rim
+        # reflections do not become false colony counts or false review boxes.
+        if edge_margin < settings.edge_artifact_margin:
+            continue
+
         circles.append(
             CircleDetection(
-                circle_id=circle_id,
-                x=int(round(keypoint.pt[0])),
-                y=int(round(keypoint.pt[1])),
-                radius=max(1, int(round(keypoint.size / 2))),
+                circle_id=next_circle_id,
+                x=x,
+                y=y,
+                radius=radius,
             )
         )
+        next_circle_id += 1
     return circles
 
 
@@ -217,7 +234,7 @@ def analyze_image_array(
         raise ValueError("Image data is empty.")
 
     plate_mask, plate_center, plate_radius = _build_plate_mask(image, settings)
-    circles = _detect_clear_circles(image, plate_mask, settings)
+    circles = _detect_clear_circles(image, plate_mask, plate_center, plate_radius, settings)
     contour_mask = _build_contour_mask(image, plate_mask, settings)
 
     contours, _ = cv2.findContours(
