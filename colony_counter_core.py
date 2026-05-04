@@ -235,7 +235,7 @@ def analyze_image_array(
     review_area_threshold, median_contour_area = _compute_area_threshold(areas, settings)
 
     review_regions: list[ReviewRegion] = []
-    review_circle_ids: set[int] = set()
+    auto_regions: list[tuple[tuple[int, int], int, tuple[int, int]]] = []
     ignored_artifact_count = 0
 
     for contour in contours:
@@ -270,7 +270,7 @@ def analyze_image_array(
         reasons: list[str] = []
 
         # IMPORTANT DESIGN DECISION FOR THE WORKSHEET:
-        # Only auto-count circles that look like clear, separate colonies.
+        # Only auto-count contours that look like clear, separate colonies.
         # If a contour is unusually large, irregular, or likely overlapping,
         # do NOT auto-count that region. Flag it for human review instead so a
         # person can decide whether it is one colony, multiple merged colonies,
@@ -295,7 +295,21 @@ def analyze_image_array(
             reasons.append("contains multiple clear colony centers")
 
         if not reasons:
-            continue
+            # Count the contour itself as the colony. This avoids missing valid,
+            # isolated colonies when the blob detector fails to find a bright
+            # center inside an otherwise good colony region.
+            if not circle_ids and edge_margin < settings.edge_artifact_margin:
+                reasons.append("near plate edge without a clear colony center")
+            else:
+                (draw_x, draw_y), draw_radius = cv2.minEnclosingCircle(contour)
+                auto_regions.append(
+                    (
+                        (int(round(draw_x)), int(round(draw_y))),
+                        max(8, int(round(draw_radius))),
+                        (int(round(center_x)), int(round(center_y))),
+                    )
+                )
+                continue
 
         if not circle_ids and edge_margin < settings.edge_artifact_margin:
             ignored_artifact_count += 1
@@ -315,30 +329,23 @@ def analyze_image_array(
                 reasons=reasons,
             )
         )
-        review_circle_ids.update(circle_ids)
-
-    auto_circle_ids = {
-        circle.circle_id for circle in circles if circle.circle_id not in review_circle_ids
-    }
 
     annotated = image.copy()
     cv2.circle(annotated, plate_center, plate_radius, (120, 120, 120), 3)
 
     draw_count = 1
-    for circle in circles:
-        if circle.circle_id not in auto_circle_ids:
-            continue
+    for center, radius, label_anchor in auto_regions:
         cv2.circle(
             annotated,
-            (circle.x, circle.y),
-            circle.radius,
+            center,
+            radius,
             (0, 180, 0),
             3,
         )
         cv2.putText(
             annotated,
             str(draw_count),
-            (circle.x - circle.radius, max(32, circle.y - circle.radius - 8)),
+            (label_anchor[0] - radius, max(32, label_anchor[1] - radius - 8)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             (0, 180, 0),
@@ -379,7 +386,7 @@ def analyze_image_array(
 
     return AnalysisResult(
         image_path=image_path,
-        auto_count=len(auto_circle_ids),
+        auto_count=len(auto_regions),
         raw_circle_count=len(circles),
         review_count=len(review_regions),
         ignored_artifact_count=ignored_artifact_count,
