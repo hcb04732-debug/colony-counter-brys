@@ -388,7 +388,8 @@ def main() -> None:
         )
         if st.button("Return to recommended values", use_container_width=True):
             apply_recommended_thresholds()
-        st.markdown(recommended_thresholds_markdown())
+        with st.expander("See recommended values"):
+            st.markdown(recommended_thresholds_markdown())
 
         st.markdown("### Detection settings")
         plate_radius_fraction = st.slider(
