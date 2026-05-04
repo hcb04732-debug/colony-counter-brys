@@ -21,6 +21,40 @@ st.set_page_config(
 )
 
 
+RECOMMENDED_THRESHOLDS = {
+    "plate_radius_fraction": 0.43,
+    "lightness_threshold": 185,
+    "warm_tone_threshold": 150,
+    "blob_min_threshold": 150,
+    "min_contour_area": 320,
+    "area_multiplier": 1.4,
+    "min_review_circularity": 0.70,
+    "min_review_solidity": 0.90,
+    "max_review_aspect_ratio": 1.45,
+}
+
+
+def apply_recommended_thresholds() -> None:
+    for key, value in RECOMMENDED_THRESHOLDS.items():
+        st.session_state[key] = value
+
+
+def recommended_thresholds_markdown() -> str:
+    return "\n".join(
+        [
+            "- `Plate radius fraction`: `0.43`",
+            "- `Lightness threshold`: `185`",
+            "- `Warm-tone threshold`: `150`",
+            "- `Blob brightness cutoff`: `150`",
+            "- `Minimum colony area`: `320`",
+            "- `Area multiplier`: `1.4`",
+            "- `Review circularity`: `0.70`",
+            "- `Review solidity`: `0.90`",
+            "- `Review aspect ratio`: `1.45`",
+        ]
+    )
+
+
 def inject_styles() -> None:
     st.markdown(
         """
@@ -206,6 +240,17 @@ def slider_descriptor(text: str) -> None:
         st.caption(text)
 
 
+@st.fragment(run_every="4m")
+def keep_awake_fragment() -> None:
+    # Best-effort keep-awake: this keeps the session active while an open
+    # browser tab is connected. Hosted deployments can still sleep when no one
+    # has the app open.
+    st.caption(
+        "Keep-awake mode is on. While this browser tab stays open, the app "
+        "sends a heartbeat every 4 minutes."
+    )
+
+
 def batch_image_token(index: int, file_name: str, file_size: int) -> str:
     safe_name = file_name.replace(" ", "_")
     return f"{index}::{safe_name}::{file_size}"
@@ -313,6 +358,10 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
+    if "recommended_thresholds_initialized" not in st.session_state:
+        apply_recommended_thresholds()
+        st.session_state["recommended_thresholds_initialized"] = True
+
     with st.sidebar:
         st.markdown("## Controls")
         uploaded_files = st.file_uploader(
@@ -321,13 +370,33 @@ def main() -> None:
             accept_multiple_files=True,
         )
 
+        st.markdown("### Session")
+        keep_awake = st.toggle("Keep app awake", value=False)
+        if keep_awake:
+            keep_awake_fragment()
+        else:
+            st.caption(
+                "Turn this on before a demo or presentation to keep the app "
+                "active while this tab stays open."
+            )
+
+        st.markdown("### Recommended values")
+        st.caption(
+            "These recommended settings are intentionally strict so more "
+            "borderline regions are sent to human review instead of being "
+            "auto-counted."
+        )
+        if st.button("Return to recommended values", use_container_width=True):
+            apply_recommended_thresholds()
+        st.markdown(recommended_thresholds_markdown())
+
         st.markdown("### Detection settings")
         plate_radius_fraction = st.slider(
             "Plate radius fraction",
             min_value=0.30,
             max_value=0.49,
-            value=0.43,
             step=0.005,
+            key="plate_radius_fraction",
         )
         slider_descriptor(
             "Adjusts how much of the image is treated as the plate area for "
@@ -338,8 +407,8 @@ def main() -> None:
             "Lightness threshold",
             min_value=0,
             max_value=255,
-            value=180,
             step=1,
+            key="lightness_threshold",
         )
         slider_descriptor(
             "Controls how bright a region must be to be considered part of a "
@@ -350,8 +419,8 @@ def main() -> None:
             "Warm-tone threshold",
             min_value=0,
             max_value=255,
-            value=145,
             step=1,
+            key="warm_tone_threshold",
         )
         slider_descriptor(
             "Controls how much warm coloring a region needs before it is "
@@ -362,8 +431,8 @@ def main() -> None:
             "Blob brightness cutoff",
             min_value=80,
             max_value=220,
-            value=140,
             step=1,
+            key="blob_min_threshold",
         )
         slider_descriptor(
             "Sets the brightness cutoff for detected blobs. Lower values allow "
@@ -374,8 +443,8 @@ def main() -> None:
             "Minimum colony area",
             min_value=50,
             max_value=600,
-            value=300,
             step=10,
+            key="min_contour_area",
         )
         slider_descriptor(
             "Sets the smallest detected region that can still be treated as a "
@@ -386,8 +455,8 @@ def main() -> None:
             "Area multiplier",
             min_value=1.0,
             max_value=5.0,
-            value=1.8,
             step=0.1,
+            key="area_multiplier",
         )
         slider_descriptor(
             "Changes the size range used when deciding whether a detected region "
@@ -398,8 +467,8 @@ def main() -> None:
             "Review circularity",
             min_value=0.0,
             max_value=1.0,
-            value=0.55,
             step=0.05,
+            key="min_review_circularity",
         )
         slider_descriptor(
             "Controls how round an object must be before it is accepted "
@@ -410,8 +479,8 @@ def main() -> None:
             "Review solidity",
             min_value=0.0,
             max_value=1.0,
-            value=0.85,
             step=0.05,
+            key="min_review_solidity",
         )
         slider_descriptor(
             "Controls how solid and filled-in a region must be during review. "
@@ -422,8 +491,8 @@ def main() -> None:
             "Review aspect ratio",
             min_value=1.0,
             max_value=6.0,
-            value=1.7,
             step=0.1,
+            key="max_review_aspect_ratio",
         )
         slider_descriptor(
             "Controls how stretched a region can be before it is flagged for "
